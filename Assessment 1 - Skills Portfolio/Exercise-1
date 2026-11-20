@@ -1,1 +1,126 @@
-example 
+# Exercise 1 - Maths Quiz
+
+import tkinter as tk
+import random
+
+# ---------- colors ----------
+# Each button has a normal color and a lighter hover color.
+BG = "#cfe5ff"
+TEXT = "#1b2a49"
+TITLE = "#1f5fd1"
+ENTRY_BG = "#ffffff"
+SHADOW = "#9db8d9"
+DISABLED = "#9aa5c0"
+
+BLUE = "#4f8cff"
+BLUE_HOVER = "#74a4ff"
+GREEN = "#3ddc84"
+GREEN_HOVER = "#5cf0a0"
+YELLOW = "#ffd166"
+YELLOW_HOVER = "#ffe08a"
+RED = "#ff6b6b"
+RED_HOVER = "#ff8c8c"
+GREY = "#6b7394"
+GREY_HOVER = "#8a92b3"
+
+# Darker colors for messages so they are easy to read on the light background.
+GOOD_TEXT = "#14803f"
+WARN_TEXT = "#b86e00"
+BAD_TEXT = "#c62828"
+
+# ---------- GAME VARIABLES ----------
+# These remember what is happening in the game. The functions below read and
+# change them as the quiz goes on.
+difficulty = 1            # 1 = easy, 2 = moderate, 3 = advanced
+question_number = 0       # which question the user is on (1 to 10)
+score = 0                 # total points so far (maximum 100)
+attempt = 1               # 1 = first try, 2 = second try
+correct_answer = 0        # the right answer to the current question
+next_question_job = None  # the waiting timer, saved so Back can cancel it
+
+
+# ---------- button ----------
+# Interactive buttons
+class RoundButton(tk.Canvas):
+
+    def __init__(self, parent, text, command, width, height, color,
+                 hover_color, text_color="black", font=("Arial", 14, "bold")):
+        self.pad = 10   # extra space so the button has room to grow to make it more interactive
+        tk.Canvas.__init__(self, parent, width=width + 2 * self.pad,
+                           height=height + 2 * self.pad, bg=BG,
+                           highlightthickness=0, cursor="hand2")
+        self.text = text
+        self.command = command
+        self.btn_width = width
+        self.btn_height = height
+        self.color = color
+        self.hover_color = hover_color
+        self.text_color = text_color
+        self.font = font
+        self.enabled = True
+        self.hovering = False
+
+        self.bind("<Enter>", self.onEnter)
+        self.bind("<Leave>", self.onLeave)
+        self.bind("<ButtonRelease-1>", self.onClick)
+        self.bind("<Unmap>", self.onLeave)
+        self.draw()
+
+    def roundRect(self, x1, y1, x2, y2, fill):
+        # Half the height is used as the corner size to give it a circular look
+        r = (y2 - y1) / 2
+        points = [x1 + r, y1, x1 + r, y1, x2 - r, y1, x2 - r, y1,
+                  x2, y1, x2, y1 + r, x2, y1 + r, x2, y2 - r,
+                  x2, y2 - r, x2, y2, x2 - r, y2, x2 - r, y2,
+                  x1 + r, y2, x1 + r, y2, x1, y2, x1, y2 - r,
+                  x1, y2 - r, x1, y1 + r, x1, y1 + r, x1, y1]
+        self.create_polygon(points, smooth=True, fill=fill, outline=fill)
+
+    def draw(self):
+        # Draws the button. "grow" is how many pixels bigger it gets when hovered.
+        self.delete("all")
+        x1 = self.pad
+        y1 = self.pad
+        x2 = x1 + self.btn_width
+        y2 = y1 + self.btn_height
+
+        if not self.enabled:
+            fill = DISABLED
+            grow = 0
+        elif self.hovering:
+            fill = self.hover_color
+            grow = 4
+        else:
+            fill = self.color
+            grow = 0
+
+        if grow > 0:
+            self.roundRect(x1 - grow + 3, y1 - grow + 4,
+                           x2 + grow + 3, y2 + grow + 4, SHADOW)
+        self.roundRect(x1 - grow, y1 - grow, x2 + grow, y2 + grow, fill)
+        self.create_text((x1 + x2) / 2, (y1 + y2) / 2, text=self.text,
+                         fill=self.text_color, font=self.font)
+
+    def onEnter(self, event):
+        self.hovering = True
+        self.draw()
+
+    def onLeave(self, event):
+        self.hovering = False
+        self.draw()
+
+    def onClick(self, event):
+        # The click only counts if the mouse is still on the button.
+        inside = 0 <= event.x <= self.winfo_width() and 0 <= event.y <= self.winfo_height()
+        if self.enabled and inside:
+            self.command()
+
+    def enable(self):
+        self.enabled = True
+        self.config(cursor="hand2")
+        self.draw()
+
+    def disable(self):
+        self.enabled = False
+        self.config(cursor="arrow")
+        self.draw()
