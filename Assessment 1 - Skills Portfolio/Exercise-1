@@ -270,7 +270,7 @@ def nextQuestion():
 
 
 def displayResults():
-    # Turns the final score (out of 100) into a grade and shows the results screen.
+    # Turns the final score (out of 100) into a grade and shows result.
     if score > 90:
         grade = "A+"
     elif score >= 80:
@@ -300,3 +300,80 @@ def startQuiz(level):
     score_label.config(text="Score: 0")
     show(quiz_frame)
     displayProblem()
+
+# ---------- window and screen ----------
+# main window.
+root = tk.Tk()
+root.title("Maths Quiz")
+root.geometry("460x560")
+root.configure(bg=BG)
+
+# Menu screen where difficulty level is showed
+menu_frame = tk.Frame(root, bg=BG)
+
+tk.Label(menu_frame, text="MATHS QUIZ", font=("Arial", 26, "bold"),
+         bg=BG, fg=TITLE).pack(pady=(50, 5))
+tk.Label(menu_frame, text="DIFFICULTY LEVEL", font=("Arial", 14),
+         bg=BG, fg=TEXT).pack(pady=(0, 25))
+
+RoundButton(menu_frame, "1. Easy", lambda: startQuiz(1), 240, 52,
+            GREEN, GREEN_HOVER).pack(pady=12)
+RoundButton(menu_frame, "2. Moderate", lambda: startQuiz(2), 240, 52,
+            YELLOW, YELLOW_HOVER).pack(pady=12)
+RoundButton(menu_frame, "3. Advanced", lambda: startQuiz(3), 240, 52,
+            RED, RED_HOVER).pack(pady=12)
+
+# Quiz screen with question number, score, the question, an answer box, a Submit
+# button, a feedback message and a Back button. Pressing Enter also submits.
+quiz_frame = tk.Frame(root, bg=BG)
+
+progress_label = tk.Label(quiz_frame, text="", font=("Arial", 12), bg=BG, fg=TEXT)
+progress_label.pack(pady=(25, 0))
+
+score_label = tk.Label(quiz_frame, text="Score: 0", font=("Arial", 12, "bold"),
+                       bg=BG, fg=WARN_TEXT)
+score_label.pack(pady=(0, 15))
+
+question_label = tk.Label(quiz_frame, text="", font=("Arial", 32, "bold"),
+                          bg=BG, fg=TEXT)
+question_label.pack(pady=10)
+
+entry = tk.Entry(quiz_frame, font=("Arial", 24), width=10, justify="center",
+                 bg=ENTRY_BG, fg=TEXT, insertbackground=TEXT)
+entry.pack(pady=10)
+entry.bind("<Return>", lambda event: submitAnswer())
+
+submit_button = RoundButton(quiz_frame, "Submit", submitAnswer, 180, 46,
+                            BLUE, BLUE_HOVER, text_color="white")
+submit_button.pack(pady=5)
+
+feedback_label = tk.Label(quiz_frame, text="", font=("Arial", 14, "bold"),
+                          bg=BG, fg=TEXT)
+feedback_label.pack(pady=10)
+
+back_button = RoundButton(quiz_frame, "Back", goBack, 140, 40, GREY,
+                          GREY_HOVER, text_color="white", font=("Arial", 12, "bold"))
+back_button.pack(pady=5)
+
+# Results screen including final score, grade, play again, and quit buttons.
+result_frame = tk.Frame(root, bg=BG)
+
+tk.Label(result_frame, text="QUIZ FINISHED!", font=("Arial", 26, "bold"),
+         bg=BG, fg=TITLE).pack(pady=(50, 20))
+
+final_score_label = tk.Label(result_frame, text="", font=("Arial", 20),
+                             bg=BG, fg=TEXT)
+final_score_label.pack(pady=5)
+
+grade_label = tk.Label(result_frame, text="", font=("Arial", 28, "bold"),
+                       bg=BG, fg=GOOD_TEXT)
+grade_label.pack(pady=10)
+
+RoundButton(result_frame, "Play Again", displayMenu, 200, 48,
+            GREEN, GREEN_HOVER).pack(pady=10)
+RoundButton(result_frame, "Quit", root.destroy, 200, 48,
+            RED, RED_HOVER).pack(pady=10)
+
+# Show the menu first keeps it open until the user closes it
+displayMenu()
+root.mainloop()
