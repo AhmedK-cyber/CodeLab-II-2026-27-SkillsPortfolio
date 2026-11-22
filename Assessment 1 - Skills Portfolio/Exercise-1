@@ -124,3 +124,179 @@ class RoundButton(tk.Canvas):
         self.enabled = False
         self.config(cursor="arrow")
         self.draw()
+
+
+# ---------- control ----------
+def show(frame):
+    # The program has three screens (menu, quiz, results) but it hides all of
+    # them and shows only the one we ask for.
+    for f in (menu_frame, quiz_frame, result_frame):
+        f.pack_forget()
+    frame.pack(fill="both", expand=True)
+
+
+def displayMenu():
+    # Shows the difficulty menu.
+    show(menu_frame)
+
+
+def goBack():
+    # Used by the Back button. After a question is finished, a timer waits
+    # 1.2 seconds before showing the next one. If the user presses Back during
+    # that wait, the timer must be cancelled. If it was not, the quiz would
+    # jump to a new question after the menu is already showing.
+    global next_question_job
+
+    if next_question_job is not None:
+        root.after_cancel(next_question_job)
+        next_question_job = None
+    displayMenu()
+
+
+# ---------- quiz logic ----------
+def randomInt(level):
+    # Gives a random number whose size depends on the difficulty where
+    # easy = 1 digit, moderate = 2 digits, advanced = 4 digits.
+    # random.randint(a, b) picks a random whole number from a to b.
+    if level == 1:
+        return random.randint(1, 9)
+    elif level == 2:
+        return random.randint(10, 99)
+    else:
+        return random.randint(1000, 9999)
+
+
+def decideOperation():
+    # Randomly returns "+" or "-" so each question can be an add or a subtract.
+    return random.choice(["+", "-"])
+
+
+def displayProblem():
+    # Creates one new question and shows it.
+    # 1. Move to the next question number and reset the attempt to 1.
+    # 2. Pick two random numbers and an operation.
+    # 3. Work out the correct answer and save it, so the user's answer can be
+    #    checked later. Subtraction can give a negative answer, which is fine.
+    # 4. Update the labels on the screen and clear the answer box.
+    global question_number, attempt, correct_answer
+
+    question_number += 1
+    attempt = 1
+
+    num1 = randomInt(difficulty)
+    num2 = randomInt(difficulty)
+    operation = decideOperation()
+
+    if operation == "+":
+        correct_answer = num1 + num2
+    else:
+        correct_answer = num1 - num2
+
+    progress_label.config(text="Question " + str(question_number) + " of 10")
+    question_label.config(text=str(num1) + " " + operation + " " + str(num2) + " =")
+    feedback_label.config(text="")
+    entry.delete(0, tk.END)
+    entry.focus()
+    submit_button.enable()
+
+
+def isCorrect(user_answer):
+    # Checks the user's answer, shows a message and adds the points.
+    # A right answer gives 10 points on the first try and 5 on the second.
+    # A wrong answer on the first try gives another chance. A wrong answer on
+    # the second try shows the correct answer.
+    # It returns True if the answer was right and False if it was wrong.
+    global score
+
+    if user_answer == correct_answer:
+        if attempt == 1:
+            points = 10
+        else:
+            points = 5
+        score += points
+        feedback_label.config(text="Correct! +" + str(points) + " points", fg=GOOD_TEXT)
+        return True
+
+    if attempt == 1:
+        feedback_label.config(text="Wrong. Try one more time!", fg=WARN_TEXT)
+    else:
+        feedback_label.config(text="Wrong. The answer was " + str(correct_answer), fg=BAD_TEXT)
+    return False
+
+
+def submitAnswer():
+    # Runs when the user clicks Submit or presses Enter. This is the main
+    # function that controls each turn:
+    # 1. Read what the user typed. If it is not a whole number, show a message
+    #    and stop, without using up an attempt.
+    # 2. Check the answer with "isCorrect".
+    # 3. If the answer was right, or it was the second try, the question is
+    #    over. Submit is greyed out and the next question appears after a
+    #    short wait so the user can read the message.
+    # 4. If it was a wrong first try, switch to attempt 2 and stay on the
+    #    same question.
+    global attempt, next_question_job
+
+    if not submit_button.enabled:
+        return
+
+    try:
+        user_answer = int(entry.get().strip())
+    except ValueError:
+        feedback_label.config(text="Please type a whole number", fg=WARN_TEXT)
+        return
+
+    finished = isCorrect(user_answer)
+    score_label.config(text="Score: " + str(score))
+
+    if finished or attempt == 2:
+        submit_button.disable()
+        next_question_job = root.after(1200, nextQuestion)
+    else:
+        attempt = 2
+        entry.delete(0, tk.END)
+
+
+def nextQuestion():
+    # Called after the short wait. The quiz has 10 questions, so after
+    # question 10 it shows the results. Otherwise it shows the next question
+    global next_question_job
+
+    next_question_job = None
+    if question_number == 10:
+        displayResults()
+    else:
+        displayProblem()
+
+
+def displayResults():
+    # Turns the final score (out of 100) into a grade and shows the results screen.
+    if score > 90:
+        grade = "A+"
+    elif score >= 80:
+        grade = "A"
+    elif score >= 70:
+        grade = "B"
+    elif score >= 60:
+        grade = "C"
+    elif score >= 50:
+        grade = "D"
+    else:
+        grade = "F"
+
+    final_score_label.config(text="Your score: " + str(score) + " / 100")
+    grade_label.config(text="Grade: " + grade)
+    show(result_frame)
+
+
+def startQuiz(level):
+    # Starts a new game when a difficulty button is clicked. It saves the choosen
+    # difficulty, resets the question number and score so every game starts fresh
+    global difficulty, question_number, score
+
+    difficulty = level
+    question_number = 0
+    score = 0
+    score_label.config(text="Score: 0")
+    show(quiz_frame)
+    displayProblem()
