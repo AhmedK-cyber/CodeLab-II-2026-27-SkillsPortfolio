@@ -154,3 +154,133 @@ class RoundButton(tk.Canvas):
         self.hovering = False
         self.config(cursor="arrow")
         self.draw()
+
+
+# ---------- joke logic ----------
+def findJokeFile():
+    # Looks for randomJokes.txt in the program's folder and returns its full
+    # path, or None if it is not there.
+    for name in os.listdir(JOKE_FOLDER):
+        if name.lower() == "randomjokes.txt":
+            return os.path.join(JOKE_FOLDER, name)
+    return None
+
+
+def parseJokes(text):
+    # Turns text into a list of (setup, punchline) pairs.
+    # Each line is one joke, and the setup and punchline are joined together
+    # with no space after the question mark.
+    # For every line, find the FIRST question mark. Everything up to and
+    # including it is the setup, and everything after it is the punchline.
+    # Using the first one matters because a punchline could also have a "?".
+    # Skip empty lines and any line with no question mark.
+    result = []
+    for line in text.splitlines():
+        line = line.strip()
+        position = line.find("?")
+        if position == -1:
+            continue
+        setup = line[:position + 1]
+        punchline = line[position + 1:].strip()
+        result.append((setup, punchline))
+    return result
+
+
+def loadJokes(path):
+    # Reads the joke file and returns its jokes using parseJokes.
+    # utf-8-sig is used because it also copes with a hidden marker that some
+    # editors add at the start of a file, and symbols like "…" are read correctly.
+    with open(path, "r", encoding="utf-8-sig", errors="replace") as file:
+        text = file.read()
+    return parseJokes(text)
+
+
+def tellJoke():
+    # Used by the "Alexa tell me a Joke" and "Next Joke" buttons.
+    # Picks a random joke from the list so user wont see the same joke twice in a row.
+    # Show only the setup and clear the old punchline.
+    # Turn on "Show Punchline" and "Next Joke" so they can be used.
+    global current_joke
+
+    joke = random.choice(jokes)
+    while joke == current_joke and len(jokes) > 1:
+        joke = random.choice(jokes)
+    current_joke = joke
+
+    setup_label.config(text=current_joke[0])
+    punchline_label.config(text="")
+    punchline_button.enable()
+    next_button.enable()
+
+
+def showPunchline():
+    # Shows the punchline of the current joke under the setup.
+    if current_joke is None:
+        return
+    punchline_label.config(text=current_joke[1])
+    punchline_button.disable()
+
+
+# ---------- Window and layout ----------
+# The main window.
+root = tk.Tk()
+root.title("Alexa tell me a Joke")
+root.geometry("500x600")
+root.configure(bg=BG)
+
+# Title at the top.
+tk.Label(root, text="ALEXA JOKES", font=("Arial", 26, "bold"),
+         bg=BG, fg=TITLE).pack(pady=(30, 15))
+
+# This button starts the jokes.
+start_button = RoundButton(root, "Alexa tell me a Joke", tellJoke, 280, 52,
+                           GREEN, GREEN_HOVER)
+start_button.pack(pady=10)
+
+# setup and punchline labels have afixed height so the buttons below
+# do not move up and down when the text changes. wraplength makes long
+# jokes continue on the next line.
+setup_label = tk.Label(root, text="Click the button to hear a joke!",
+                       font=("Arial", 16, "bold"), bg=BG, fg=TEXT,
+                       wraplength=420, height=4)
+setup_label.pack(pady=(20, 0))
+
+punchline_label = tk.Label(root, text="", font=("Arial", 16, "italic"),
+                           bg=BG, fg=TITLE, wraplength=420, height=4)
+punchline_label.pack(pady=(0, 10))
+
+# "Show Punchline" and "Next Joke" sit side by side.
+button_row = tk.Frame(root, bg=BG)
+button_row.pack(pady=5)
+
+punchline_button = RoundButton(button_row, "Show Punchline", showPunchline,
+                               190, 48, YELLOW, YELLOW_HOVER)
+punchline_button.pack(side="left", padx=5)
+punchline_button.disable()
+
+next_button = RoundButton(button_row, "Next Joke", tellJoke, 190, 48,
+                          BLUE, BLUE_HOVER, text_color="white")
+next_button.pack(side="left", padx=5)
+next_button.disable()
+
+# This button closes the program.
+RoundButton(root, "Quit", root.destroy, 160, 44, RED, RED_HOVER).pack(pady=(20, 10))
+
+# ---------- setup ----------
+# Load the jokes when the program starts.
+# Look for randomJokes.txt in the program's folder and read the jokes from
+# it if it is found.
+# If the file is missing or has no jokes in it, use the built-in jokes instead.
+# The message in the console shows which one was used.
+jokes = []
+joke_path = findJokeFile()
+if joke_path:
+    jokes = loadJokes(joke_path)
+    print("Loaded " + str(len(jokes)) + " jokes from " + joke_path)
+
+if len(jokes) == 0:
+    jokes = parseJokes(BUILT_IN_JOKES)
+    print("No jokes found in randomJokes.txt, using the built-in jokes")
+
+# Keep the window open until the user closes it.
+root.mainloop()
