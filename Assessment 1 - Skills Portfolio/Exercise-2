@@ -1,0 +1,156 @@
+# Exercise 2 - Alexa tell me a Joke
+import os
+import random
+import tkinter as tk
+
+# ---------- colors ----------
+# All colors gathered here for accessibility.
+BG = "#cfe5ff"
+TEXT = "#1b2a49"
+TITLE = "#1f5fd1"
+SHADOW = "#9db8d9"
+DISABLED = "#9aa5c0"
+
+BLUE = "#4f8cff"
+BLUE_HOVER = "#74a4ff"
+GREEN = "#3ddc84"
+GREEN_HOVER = "#5cf0a0"
+YELLOW = "#ffd166"
+YELLOW_HOVER = "#ffe08a"
+RED = "#ff6b6b"
+RED_HOVER = "#ff8c8c"
+
+# ---------- joke file ----------
+# The program looks for randomJokes.txt in the same folder as this program file.
+JOKE_FOLDER = os.path.dirname(os.path.abspath(__file__))
+
+# same jokes as in randomJokes.txt. They are only used if the
+# file cannot be found, so the program always has jokes to tell.
+BUILT_IN_JOKES = """Why did the chicken cross the road?To get to the other side.
+What happens if you boil a clown?You get a laughing stock.
+Why did the car get a flat tire?Because there was a fork in the road!
+How did the hipster burn his mouth?He ate his pizza before it was cool.
+What did the janitor say when he jumped out of the closet?SUPPLIES!!!!
+Have you heard about the band 1023MB?It's probably because they haven't got a gig yet…
+Why does the golfer wear two pants?Because he's afraid he might get a "Hole-in-one."
+Why should you wear glasses to maths class?Because it helps with division.
+Why does it take pirates so long to learn the alphabet?Because they could spend years at C.
+Why did the woman go on the date with the mushroom?Because he was a fun-ghi.
+Why do bananas never get lonely?Because they hang out in bunches.
+What did the buffalo say when his kid went to college?Bison.
+Why shouldn't you tell secrets in a cornfield?Too many ears.
+What do you call someone who doesn't like carbs?Lack-Toast Intolerant.
+Why did the can crusher quit his job?Because it was soda pressing.
+Why did the birthday boy wrap himself in paper?He wanted to live in the present.
+What does a house wear?A dress.
+Why couldn't the toilet paper cross the road?Because it got stuck in a crack.
+Why didn't the bike want to go anywhere?Because it was two-tired!
+Want to hear a pizza joke?Nahhh, it's too cheesy!
+Why are chemists great at solving problems?Because they have all of the solutions!
+Why is it impossible to starve in the desert?Because of all the sand which is there!
+What did the cheese say when it looked in the mirror?Halloumi!
+Why did the developer go broke?Because he used up all his cache.
+Did you know that ants are the only animals that don't get sick?It's true! It's because they have little antibodies.
+Why did the donut go to the dentist?To get a filling.
+What do you call a bear with no teeth?A gummy bear!
+What does a vegan zombie like to eat?Graaains.
+What do you call a dinosaur with only one eye?A Do-you-think-he-saw-us!
+Why should you never fall in love with a tennis player?Because to them... love means NOTHING!
+What did the full glass say to the empty glass?You look drunk.
+What's a potato's favorite form of transportation?The gravy train
+What did one ocean say to the other?Nothing, they just waved.
+What did the right eye say to the left eye?Honestly, between you and me something smells.
+What do you call a dog that's been run over by a steamroller?Spot!
+What's the difference between a hippo and a zippo?One's pretty heavy and the other's a little lighter
+Why don't scientists trust Atoms?They make up everything."""
+
+# ---------- game variables ----------
+# These remember what is happening in the program.
+jokes = []            # every joke from the file
+current_joke = None   # the joke being shown now
+
+
+# ---------- interactive buttons ----------
+class RoundButton(tk.Canvas):
+
+    def __init__(self, parent, text, command, width, height, color,
+                 hover_color, text_color="black", font=("Arial", 14, "bold")):
+        self.pad = 10   
+        tk.Canvas.__init__(self, parent, width=width + 2 * self.pad,
+                           height=height + 2 * self.pad, bg=BG,
+                           highlightthickness=0, cursor="hand2")
+        self.text = text
+        self.command = command
+        self.btn_width = width
+        self.btn_height = height
+        self.color = color
+        self.hover_color = hover_color
+        self.text_color = text_color
+        self.font = font
+        self.enabled = True
+        self.hovering = False
+
+        self.bind("<Enter>", self.onEnter)
+        self.bind("<Leave>", self.onLeave)
+        self.bind("<ButtonRelease-1>", self.onClick)
+        self.draw()
+
+    def roundRect(self, x1, y1, x2, y2, fill):
+        # Half the height is used as the corner size, which makes the ends circular.
+        r = (y2 - y1) / 2
+        points = [x1 + r, y1, x1 + r, y1, x2 - r, y1, x2 - r, y1,
+                  x2, y1, x2, y1 + r, x2, y1 + r, x2, y2 - r,
+                  x2, y2 - r, x2, y2, x2 - r, y2, x2 - r, y2,
+                  x1 + r, y2, x1 + r, y2, x1, y2, x1, y2 - r,
+                  x1, y2 - r, x1, y1 + r, x1, y1 + r, x1, y1]
+        self.create_polygon(points, smooth=True, fill=fill, outline=fill)
+
+    def draw(self):
+        # hovering effect of the button where the button grows
+        self.delete("all")
+        x1 = self.pad
+        y1 = self.pad
+        x2 = x1 + self.btn_width
+        y2 = y1 + self.btn_height
+
+        if not self.enabled:
+            fill = DISABLED
+            grow = 0
+        elif self.hovering:
+            fill = self.hover_color
+            grow = 4
+        else:
+            fill = self.color
+            grow = 0
+
+        if grow > 0:
+            self.roundRect(x1 - grow + 3, y1 - grow + 4,
+                           x2 + grow + 3, y2 + grow + 4, SHADOW)
+        self.roundRect(x1 - grow, y1 - grow, x2 + grow, y2 + grow, fill)
+        self.create_text((x1 + x2) / 2, (y1 + y2) / 2, text=self.text,
+                         fill=self.text_color, font=self.font)
+
+    def onEnter(self, event):
+        self.hovering = True
+        self.draw()
+
+    def onLeave(self, event):
+        self.hovering = False
+        self.draw()
+
+    def onClick(self, event):
+        # The click only counts if the mouse is still on the button.
+        inside = 0 <= event.x <= self.winfo_width() and 0 <= event.y <= self.winfo_height()
+        if self.enabled and inside:
+            self.command()
+
+    def enable(self):
+        self.enabled = True
+        self.config(cursor="hand2")
+        self.draw()
+
+    def disable(self):
+        self.enabled = False
+        self.hovering = False
+        self.config(cursor="arrow")
+        self.draw()
