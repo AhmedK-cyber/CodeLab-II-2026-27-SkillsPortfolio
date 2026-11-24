@@ -1,0 +1,45 @@
+# Exercise 3 - Student Manager
+import math
+import os
+import tkinter as tk
+from tkinter import messagebox, simpledialog
+
+# ---------- colors ----------
+# colors gathered here for accessebility. Colors indicite different purposes of each button
+BG = "#eef3f8"
+CARD = "#ffffff"
+SIDE = "#f7f9fc"
+BORDER = "#d6e0ec"
+FG = "#16243b"
+MUTED = "#526582"
+TITLE = "#1d4ed8"
+SHADOW = "#c4d1e2"
+NEUTRAL = "#e2e8f0"
+NEUTRAL_H = "#cbd5e1"
+
+BLUE = "#2563eb"
+BLUE_H = "#1d4ed8"
+GREEN = "#16a34a"
+GREEN_H = "#15803d"
+RED = "#dc2626"
+RED_H = "#b91c1c"
+FONT = "Segoe UI" if os.name == "nt" else "Helvetica"
+
+# ---------- student file ----------
+# Looks for studentMarks.txt in the same folder as the code file.
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+STUDENT_FILE = os.path.join(APP_DIR, "studentMarks.txt")
+
+# Same sample data as studentMarks.txt. This is used only if the file is not found.
+BUILT_IN_DATA = """10
+1345,John Curry,8,15,7,45
+2345,Sam Sturtivant,14,15,14,77
+9876,Lee Scott,17,11,16,99
+3724,Matt Thompson,19,11,15,81
+1212,Ron Herrema,14,17,18,66
+8439,Jake Hobbs,10,11,10,43
+2344,Jo Hyde,6,15,10,55
+9384,Gareth Southgate,5,6,8,33
+8327,Alan Shearer,20,20,20,100
+2983,Les Ferdinand,15,17,18,92
+"""
