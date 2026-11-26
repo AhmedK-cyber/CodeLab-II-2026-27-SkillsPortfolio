@@ -43,3 +43,128 @@ BUILT_IN_DATA = """10
 8327,Alan Shearer,20,20,20,100
 2983,Les Ferdinand,15,17,18,92
 """
+# ---------- program variables ----------
+# Keeps student's details in a list while running the app.
+students = []
+
+# ---------- interactive buttons ----------
+class PillButton(tk.Canvas):
+    # Draws a round button on a canvas so it can pop up a bit and show a
+    # shadow when the mouse goes over it to make the button intracive.
+    def __init__(self, parent, text, cmd, w=228, h=35, bg=BLUE, hover=BLUE_H, fg="#fff", font=(FONT, 10, "bold")):
+        self.pad, self.text, self.cmd, self.w, self.h = 6, text, cmd, w, h
+        self.bg, self.hover, self.fg, self.font, self.hovered = bg, hover, fg, font, False
+        super().__init__(parent, width=w + 12, height=h + 12, bg=parent.cget("bg"), highlightthickness=0, bd=0, cursor="hand2")
+        self.bind("<Enter>", lambda _e: self._hover(True))
+        self.bind("<Leave>", lambda _e: self._hover(False))
+        self.bind("<ButtonRelease-1>", self._click)
+        self.draw()
+
+    def _points(self, x1, y1, x2, y2):
+        # Half the height gives round ends.
+        r = (y2 - y1) / 2.0
+        return [x1+r,y1, x1+r,y1, x2-r,y1, x2-r,y1, x2,y1, x2,y1+r, x2,y1+r, x2,y2-r,
+                x2,y2-r, x2,y2, x2-r,y2, x2-r,y2, x1+r,y2, x1+r,y2, x1,y2, x1,y2-r,
+                x1,y2-r, x1,y1+r, x1,y1+r, x1,y1]
+
+    def _hover(self, state):
+        self.hovered = state
+        self.draw()
+
+    def draw(self):
+        # Hover effect where the button moves up slightly with a shadow.
+        self.delete("all")
+        x1, y1, x2, y2 = self.pad, self.pad, self.pad + self.w, self.pad + self.h
+        lift = 2 if self.hovered else 0
+        fill = self.hover if self.hovered else self.bg
+        if lift:
+            self.create_polygon(self._points(x1-lift+2, y1-lift+3, x2+lift+2, y2+lift+3), smooth=True, fill=SHADOW, outline=SHADOW)
+        self.create_polygon(self._points(x1-lift, y1-lift, x2+lift, y2+lift), smooth=True, fill=fill, outline=fill)
+        self.create_text((x1+x2)/2, (y1+y2)/2, text=self.text, fill=self.fg, font=self.font)
+
+    def _click(self, e):
+        #The click only counts if the mouse is still on the button.
+        if 0 <= e.x <= self.winfo_width() and 0 <= e.y <= self.winfo_height() and callable(self.cmd):
+            self.cmd()
+
+
+# ---------- student logic ----------
+def find_file():
+    # Looks for studentmarks.txt in the app folder (any letter case) and
+    #returns its path, or nothing if its not there.
+    try:
+        for name in os.listdir(APP_DIR):
+            if name.lower() == "studentmarks.txt":
+                return os.path.join(APP_DIR, name)
+    except OSError:
+        pass
+    return None
+
+
+def parse_students(raw):
+    # Turns text lines into student dictionaries. Each student
+    # line has 6 parts split by commas which includes student number, name,
+    # three coursework marks (out of 20), and an exam mark (out of 100).
+    # It skips lines without 6 parts (like the count on line 1) or bad numbers.
+    rows = []
+    for line in raw.splitlines():
+        parts = [p.strip() for p in line.split(",")]
+        if len(parts) != 6:
+            continue
+        try:
+            rows.append({
+                "code": int(parts[0]),
+                "name": parts[1],
+                "marks": [int(parts[2]), int(parts[3]), int(parts[4])],
+                "exam": int(parts[5]),
+            })
+        except ValueError:
+            continue
+    return rows
+
+
+def save_students():
+    # Writes the student count on the first line and then each student line
+    # so add, update, and delete stay saved in the file.
+    lines = [str(len(students))] + [
+        f"{s['code']},{s['name']},{','.join(map(str, s['marks']))},{s['exam']}" for s in students
+    ]
+    try:
+        with open(STUDENT_FILE, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+    except OSError:
+        messagebox.showerror("Save Error", f"Could not save changes to:\n{STUDENT_FILE}", parent=root)
+
+
+def total_marks(s):
+    # Coursework (out of 60) plus exam (out of 100), which isout of 160 in total.
+    return sum(s["marks"]) + s["exam"]
+
+
+def pct(s):
+    # Overall percentage out of 160 marks.
+    return total_marks(s) * 100.0 / 160.0
+
+
+def fmt_pct(v):
+    # It rounds half numbers up to 2 decimal places so scores look neat.
+    return f"{math.floor(v * 100.0 + 0.5) / 100.0:.2f}%"
+
+
+def grade(p):
+    # Grades: A 70+, B 60-69, C 50-59, D 40-49, F under 40.
+    return "A" if p >= 70 else "B" if p >= 60 else "C" if p >= 50 else "D" if p >= 40 else "F"
+
+
+def _set_output(title):
+    # Clears the text box and puts a title at the top.
+    out.config(state="normal")
+    out.delete("1.0", tk.END)
+    out.insert(tk.END, f"{title}\n\n", "title")
+
+
+def show_msg(title, msg):
+    # Shows a simple message in the output box.
+    _set_output(title)
+    out.insert(tk.END, msg, "body")
+    out.config(state="disabled")
