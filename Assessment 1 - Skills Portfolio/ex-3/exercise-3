@@ -292,3 +292,126 @@ def _validate(vals, existing=None):
         if s["code"] == code and s is not existing:
             return None, f"Student number {code} already belongs to {s['name']}."
     return {"code": code, "name": name, "marks": marks, "exam": exam}, ""
+
+def _form(title, existing=None, focus=None):
+    # Opens the add/update form and waits until saved or closed.
+    win = tk.Toplevel(root)
+    win.title(title); win.configure(bg=BG); win.geometry("410x540"); win.resizable(False, False); win.transient(root)
+    tk.Label(win, text=title, font=(FONT, 14, "bold"), bg=BG, fg=TITLE).pack(pady=(14, 6))
+    labels = ["Student Number (1000-9999)", "Name (max 20 chars)", "Coursework 1 (0-20)",
+              "Coursework 2 (0-20)", "Coursework 3 (0-20)", "Exam Mark (0-100)"]
+    init = [str(existing["code"]), existing["name"], *(str(m) for m in existing["marks"]), str(existing["exam"])] if existing else [""] * 6
+    boxes = []
+    for lbl, val in zip(labels, init):
+        tk.Label(win, text=lbl, font=(FONT, 10, "bold"), bg=BG, fg=FG).pack(anchor="w", padx=46, pady=(6, 1))
+        e = tk.Entry(win, font=(FONT, 11), width=28, bg=CARD, fg=FG, relief="solid", bd=1)
+        e.insert(0, val); e.pack(padx=46, ipady=2); boxes.append(e)
+    if focus is not None:
+        boxes[focus].focus_set()
+    out_data = {"v": None}
+
+    def on_save():
+        # Keeps the form open if something is wrong so the user can fix it.
+        data, err = _validate([b.get() for b in boxes], existing)
+        if err:
+            messagebox.showerror("Invalid Input", err, parent=win); return
+        out_data["v"] = data; win.destroy()
+
+    bar = tk.Frame(win, bg=BG); bar.pack(pady=16)
+    PillButton(bar, "Save", on_save, 125, 35, GREEN, GREEN_H).pack(side="left", padx=5)
+    PillButton(bar, "Cancel", win.destroy, 105, 35, NEUTRAL, NEUTRAL_H, FG).pack(side="left", padx=5)
+    win.wait_visibility(); win.grab_set(); root.wait_window(win)
+    return out_data["v"]
+
+
+def add_student():
+    # Menu 6: adds a new student and saves to studentMarks.txt.
+    rec = _form("Add Student Record")
+    if rec:
+        students.append(rec); save_students(); show_table("Student Added", [rec])
+
+
+def update_student():
+    # Menu 7th: lets the user pick which field to update in a small menu,
+    # edits the student, and saves to studentMarks.txt.
+    target = pick_single()
+    if not target:
+        return
+    dlg = tk.Toplevel(root)
+    dlg.title("Update Field"); dlg.configure(bg=BG); dlg.geometry("330x370"); dlg.resizable(False, False); dlg.transient(root)
+    choice, picked = tk.StringVar(value="All Details"), {"v": None}
+    tk.Label(dlg, text=f"Update: {target['name']}", font=(FONT, 12, "bold"), bg=BG, fg=TITLE).pack(pady=(14, 6))
+    opts = ["All Details", "Student Number", "Name", "Coursework 1", "Coursework 2", "Coursework 3", "Exam Mark"]
+    for o in opts:
+        tk.Radiobutton(dlg, text=o, variable=choice, value=o, font=(FONT, 10), bg=BG, fg=FG, activebackground=BG, selectcolor=CARD).pack(anchor="w", padx=90)
+    row = tk.Frame(dlg, bg=BG); row.pack(pady=14)
+    PillButton(row, "Continue", lambda: (picked.update({"v": choice.get()}), dlg.destroy()), 115, 34, BLUE, BLUE_H).pack(side="left", padx=4)
+    PillButton(row, "Cancel", dlg.destroy, 100, 34, NEUTRAL, NEUTRAL_H, FG).pack(side="left", padx=4)
+    dlg.wait_visibility(); dlg.grab_set(); root.wait_window(dlg)
+    if not picked["v"]:
+        return
+    idx_map = {"Student Number": 0, "Name": 1, "Coursework 1": 2, "Coursework 2": 3, "Coursework 3": 4, "Exam Mark": 5}
+    upd = _form("Update Student Record", target, idx_map.get(picked["v"]))
+    if upd:
+        target.update(upd); save_students(); show_table("Student Updated", [target])
+
+
+def delete_student():
+    # Menu 8th: asks to confirm, removes the student, and saves the file.
+    target = pick_single()
+    if target and messagebox.askyesno("Delete Record", f"Delete {target['name']} ({target['code']})?", parent=root):
+        students.remove(target); save_students(); show_msg("Student Deleted", f"{target['name']} ({target['code']}) deleted.")
+
+
+# ---------- window and layout ----------
+# Main window with buttons on the left and results with a scrollbar on the right.
+root = tk.Tk()
+root.title("Student Marks Manager"); root.geometry("1000x680"); root.minsize(860, 580); root.configure(bg=BG)
+
+side = tk.Frame(root, bg=SIDE, width=265, highlightbackground=BORDER, highlightthickness=1)
+side.pack(side="left", fill="y", padx=(12, 6), pady=12); side.pack_propagate(False)
+tk.Label(side, text="STUDENT MANAGER", font=(FONT, 15, "bold"), bg=SIDE, fg=TITLE).pack(pady=(16, 10))
+
+menu = [
+    ("1. View All Students", view_all, BLUE, BLUE_H),
+    ("2. View One Student", view_one, BLUE, BLUE_H),
+    ("3. Highest Total Score", lambda: extreme(True), BLUE, BLUE_H),
+    ("4. Lowest Total Score", lambda: extreme(False), BLUE, BLUE_H),
+    ("5. Sort Records", sort_menu, BLUE, BLUE_H),
+    ("6. Add a Student", add_student, GREEN, GREEN_H),
+    ("7. Update a Student", update_student, BLUE, BLUE_H),
+    ("8. Delete a Student", delete_student, RED, RED_H),
+]
+for lbl, cmd, c, h in menu:
+    PillButton(side, lbl, cmd, 228, 35, c, h).pack(pady=2)
+
+tk.Frame(side, bg=BORDER, height=1).pack(fill="x", padx=22, pady=10)
+PillButton(side, "Quit", root.destroy, 228, 35, RED, RED_H).pack()
+
+card = tk.Frame(root, bg=CARD, highlightbackground=BORDER, highlightthickness=1)
+card.pack(side="left", fill="both", expand=True, padx=(6, 12), pady=12)
+sb = tk.Scrollbar(card, orient="vertical"); sb.pack(side="right", fill="y", padx=(0, 4), pady=8)
+out = tk.Text(card, font=("Courier New", 11), bg=CARD, fg=FG, relief="flat", bd=0, padx=16, pady=14, wrap="none", yscrollcommand=sb.set, state="disabled")
+out.pack(side="left", fill="both", expand=True); sb.config(command=out.yview)
+
+# Styles for the title, table header, rows, and summary text.
+out.tag_config("title", font=(FONT, 15, "bold"), foreground=TITLE)
+out.tag_config("header", font=("Courier New", 11, "bold"), foreground=FG)
+out.tag_config("body", font=("Courier New", 11), foreground=FG)
+out.tag_config("summary", font=(FONT, 11, "bold"), foreground=TITLE)
+
+# ---------- setup ----------
+# Loads student records when the app starts. Uses studentmarks.txt if found,
+# or falls back to BUILT_IN_DATA if the file is missing or empty.
+found = find_file()
+if found:
+    STUDENT_FILE = found
+    with open(found, "r", encoding="utf-8-sig", errors="replace") as f:
+        students = parse_students(f.read())
+if not students:
+    students = parse_students(BUILT_IN_DATA)
+
+show_msg("Welcome", f"Choose an option on the left to manage student marks.\n\nLoaded: {len(students)}")
+
+# Keep the window open until the user closes it.
+root.mainloop()
