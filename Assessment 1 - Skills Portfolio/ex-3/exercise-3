@@ -168,3 +168,127 @@ def show_msg(title, msg):
     _set_output(title)
     out.insert(tk.END, msg, "body")
     out.config(state="disabled")
+
+def show_table(title, rows, summary=""):
+    # Shows student rows in even columns, with a summary at the bottom if given.
+    _set_output(title)
+    hdr = f"{'Name'.ljust(20)}{'Number'.ljust(8)}{'Coursework'.ljust(13)}{'Exam'.ljust(9)}{'Overall'.ljust(10)}Grade"
+    out.insert(tk.END, hdr + "\n" + "-" * 66 + "\n", "header")
+    for s in rows:
+        p = pct(s)
+        cw, ex = f"{sum(s['marks'])}/60", f"{s['exam']}/100"
+        out.insert(tk.END, f"{s['name'].ljust(20)}{str(s['code']).ljust(8)}{cw.ljust(13)}{ex.ljust(9)}{fmt_pct(p).ljust(10)}{grade(p)}\n", "body")
+    if summary:
+        out.insert(tk.END, f"\n{summary}", "summary")
+    out.config(state="disabled")
+
+
+def search(q):
+    # Finds matching students, exact number if only digits are typed, or exact
+    # name first and part of a name next (ignoring capital letters).
+    c = q.strip().lower()
+    if not c:
+        return []
+    if c.isdigit():
+        return [s for s in students if s["code"] == int(c)]
+    exact = [s for s in students if s["name"].lower() == c]
+    return exact or [s for s in students if c in s["name"].lower()]
+
+
+def pick_single():
+    # Used by update and delete so only one student is changed. If more than
+    # one student matches, it asks the user to type the student number instead.
+    q = simpledialog.askstring("Find Student", "Enter student name or number:", parent=root)
+    if q is None:
+        return None
+    matches = search(q)
+    if not matches:
+        messagebox.showinfo("Not Found", f'No student matches "{q}".', parent=root)
+        return None
+    if len(matches) > 1:
+        names = "\n".join(f"• {s['name']} ({s['code']})" for s in matches)
+        messagebox.showinfo("Multiple Matches", f"Enter student number instead:\n\n{names}", parent=root)
+        return None
+    return matches[0]
+
+
+def view_all():
+    # 1st menu: it shows every student, plus how many there are and the average %.
+    if not students:
+        show_msg("All Students", "No student records available.")
+        return
+    avg = sum(pct(s) for s in students) / len(students)
+    show_table("All Student Records", students, f"Students: {len(students)}\nAverage percentage: {fmt_pct(avg)}")
+
+
+def view_one():
+    # 2nd menu:  it asks for a name or number and shows matching students.
+    q = simpledialog.askstring("Find Student", "Enter student name or number:", parent=root)
+    if q is None:
+        return
+    m = search(q)
+    show_table(f'Record for "{q.strip()}"', m) if m else show_msg("Not Found", f'No student matches "{q}".')
+
+
+def extreme(high=True):
+    # 3rd and 4th menus: used to show the student(s) with the highest or lowest total
+    # score out of 160.
+    if not students:
+        show_msg("Score Summary", "No student records available.")
+        return
+    target = (max if high else min)(total_marks(s) for s in students)
+    lbl = "Highest" if high else "Lowest"
+    show_table(f"{lbl} Total Score", [s for s in students if total_marks(s) == target], f"{lbl} total: {target} out of 160")
+
+
+def sort_menu():
+    # 5th menu: it lets the user pick what to sort by and in what order on screen,
+    # without changing the order in studentmarks.txt.
+    if not students:
+        show_msg("Sort Records", "No student records available.")
+        return
+    dlg = tk.Toplevel(root)
+    dlg.title("Sort Records"); dlg.configure(bg=BG); dlg.geometry("320x340"); dlg.resizable(False, False); dlg.transient(root)
+    fv, ov, res = tk.StringVar(value="Name"), tk.StringVar(value="Ascending"), {"v": None}
+    for head, var, opts in [("Sort By", fv, ("Name", "Number", "Percentage")), ("Order", ov, ("Ascending", "Descending"))]:
+        tk.Label(dlg, text=head, font=(FONT, 12, "bold"), bg=BG, fg=TITLE).pack(pady=(14, 4))
+        for o in opts:
+            tk.Radiobutton(dlg, text=o, variable=var, value=o, font=(FONT, 11), bg=BG, fg=FG, activebackground=BG, selectcolor=CARD).pack(anchor="w", padx=95)
+    row = tk.Frame(dlg, bg=BG); row.pack(pady=16)
+    PillButton(row, "Sort", lambda: (res.update({"v": (fv.get(), ov.get())}), dlg.destroy()), 115, 34, BLUE, BLUE_H).pack(side="left", padx=4)
+    PillButton(row, "Cancel", dlg.destroy, 105, 34, NEUTRAL, NEUTRAL_H, FG).pack(side="left", padx=4)
+    dlg.wait_visibility(); dlg.grab_set(); root.wait_window(dlg)
+    if not res["v"]:
+        return
+    field, order = res["v"]
+    keys = {"Name": lambda s: s["name"].lower(), "Number": lambda s: s["code"], "Percentage": pct}
+    show_table(f"Sorted by {field} ({order})", sorted(students, key=keys[field], reverse=(order == "Descending")))
+
+
+def _int_range(val, lo, hi, lbl):
+    # Checks that a value is a whole number inside the allowed range.
+    try:
+        n = int(val.strip())
+    except ValueError:
+        raise ValueError(f"{lbl} must be a whole number.")
+    if not (lo <= n <= hi):
+        raise ValueError(f"{lbl} must be between {lo} and {hi}.")
+    return n
+
+
+def _validate(vals, existing=None):
+    # Checks number from 1000-9999 (not already used), name (1-20 letters, no
+    # commas), coursework marks (0-20), and exam mark (0-100).
+    try:
+        code = _int_range(vals[0], 1000, 9999, "Student number")
+        name = vals[1].strip()
+        if not name or "," in name or len(name) > 20:
+            raise ValueError("Name must be 1-20 characters with no commas.")
+        marks = [_int_range(vals[i + 2], 0, 20, f"Coursework {i + 1}") for i in range(3)]
+        exam = _int_range(vals[5], 0, 100, "Exam mark")
+    except ValueError as err:
+        return None, str(err)
+    for s in students:
+        if s["code"] == code and s is not existing:
+            return None, f"Student number {code} already belongs to {s['name']}."
+    return {"code": code, "name": name, "marks": marks, "exam": exam}, ""
